@@ -1,903 +1,262 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SmartHaven — Product Research Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --surface2: #1a1a24;
-    --border: #2a2a3a;
-    --accent: #00e5a0;
-    --accent2: #7c3aed;
-    --accent3: #f59e0b;
-    --text: #e8e8f0;
-    --muted: #6b6b80;
-    --danger: #ef4444;
-    --success: #10b981;
-  }
-
-- { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-background: var(–bg);
-color: var(–text);
-font-family: ‘DM Sans’, sans-serif;
-min-height: 100vh;
-overflow-x: hidden;
-}
-
-/* Animated background grid */
-body::before {
-content: ‘’;
-position: fixed;
-inset: 0;
-background-image:
-linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
-linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
-background-size: 40px 40px;
-pointer-events: none;
-z-index: 0;
-}
-
-/* Glow orbs */
-.orb {
-position: fixed;
-border-radius: 50%;
-filter: blur(80px);
-pointer-events: none;
-z-index: 0;
-opacity: 0.15;
-}
-.orb1 { width: 400px; height: 400px; background: var(–accent2); top: -100px; right: -100px; }
-.orb2 { width: 300px; height: 300px; background: var(–accent); bottom: -50px; left: -50px; }
-
-.container {
-max-width: 900px;
-margin: 0 auto;
-padding: 0 20px;
-position: relative;
-z-index: 1;
-}
-
-/* Header */
-header {
-padding: 32px 0 24px;
-display: flex;
-align-items: center;
-justify-content: space-between;
-border-bottom: 1px solid var(–border);
-}
-
-.logo {
-font-family: ‘Syne’, sans-serif;
-font-weight: 800;
-font-size: 1.1rem;
-letter-spacing: -0.02em;
-}
-
-.logo span { color: var(–accent); }
-
-.badge {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.65rem;
-background: rgba(0,229,160,0.1);
-border: 1px solid rgba(0,229,160,0.3);
-color: var(–accent);
-padding: 4px 10px;
-border-radius: 100px;
-letter-spacing: 0.08em;
-}
-
-/* Hero */
-.hero {
-padding: 48px 0 36px;
-text-align: center;
-}
-
-.hero h1 {
-font-family: ‘Syne’, sans-serif;
-font-size: clamp(1.8rem, 5vw, 2.8rem);
-font-weight: 800;
-line-height: 1.1;
-letter-spacing: -0.03em;
-margin-bottom: 12px;
-}
-
-.hero h1 em {
-font-style: normal;
-color: var(–accent);
-}
-
-.hero p {
-color: var(–muted);
-font-size: 0.95rem;
-font-weight: 300;
-max-width: 500px;
-margin: 0 auto;
-line-height: 1.6;
-}
-
-/* Mode selector */
-.mode-selector {
-display: flex;
-gap: 8px;
-background: var(–surface);
-border: 1px solid var(–border);
-border-radius: 12px;
-padding: 6px;
-margin: 28px 0 24px;
-}
-
-.mode-btn {
-flex: 1;
-padding: 10px 16px;
-border: none;
-border-radius: 8px;
-background: transparent;
-color: var(–muted);
-font-family: ‘DM Sans’, sans-serif;
-font-size: 0.8rem;
-font-weight: 500;
-cursor: pointer;
-transition: all 0.2s;
-white-space: nowrap;
-}
-
-.mode-btn.active {
-background: var(–surface2);
-color: var(–text);
-border: 1px solid var(–border);
-}
-
-.mode-btn:hover:not(.active) { color: var(–text); }
-
-/* Input area */
-.input-card {
-background: var(–surface);
-border: 1px solid var(–border);
-border-radius: 16px;
-padding: 24px;
-margin-bottom: 20px;
-transition: border-color 0.3s;
-}
-
-.input-card:focus-within { border-color: rgba(0,229,160,0.4); }
-
-.input-label {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.65rem;
-color: var(–accent);
-letter-spacing: 0.1em;
-text-transform: uppercase;
-margin-bottom: 10px;
-display: block;
-}
-
-.input-row {
-display: flex;
-gap: 10px;
-align-items: flex-end;
-}
-
-textarea {
-flex: 1;
-background: var(–surface2);
-border: 1px solid var(–border);
-border-radius: 10px;
-color: var(–text);
-font-family: ‘DM Sans’, sans-serif;
-font-size: 0.9rem;
-padding: 14px 16px;
-resize: none;
-min-height: 80px;
-outline: none;
-transition: border-color 0.2s;
-line-height: 1.5;
-}
-
-textarea::placeholder { color: var(–muted); }
-textarea:focus { border-color: rgba(0,229,160,0.4); }
-
-.analyze-btn {
-background: var(–accent);
-color: #0a0a0f;
-border: none;
-border-radius: 10px;
-padding: 14px 22px;
-font-family: ‘Syne’, sans-serif;
-font-weight: 700;
-font-size: 0.85rem;
-cursor: pointer;
-transition: all 0.2s;
-white-space: nowrap;
-letter-spacing: 0.02em;
-align-self: flex-end;
-height: 52px;
-display: flex;
-align-items: center;
-gap: 8px;
-}
-
-.analyze-btn:hover { background: #00ffb3; transform: translateY(-1px); }
-.analyze-btn:active { transform: translateY(0); }
-.analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-/* Quick prompts */
-.quick-prompts {
-display: flex;
-flex-wrap: wrap;
-gap: 8px;
-margin-top: 14px;
-}
-
-.chip {
-background: var(–surface2);
-border: 1px solid var(–border);
-border-radius: 100px;
-padding: 6px 14px;
-font-size: 0.75rem;
-color: var(–muted);
-cursor: pointer;
-transition: all 0.2s;
-font-family: ‘DM Mono’, monospace;
-}
-
-.chip:hover {
-border-color: var(–accent);
-color: var(–accent);
-background: rgba(0,229,160,0.05);
-}
-
-/* Response area */
-.response-area {
-display: none;
-animation: fadeUp 0.4s ease;
-}
-
-.response-area.visible { display: block; }
-
-@keyframes fadeUp {
-from { opacity: 0; transform: translateY(16px); }
-to { opacity: 1; transform: translateY(0); }
-}
-
-/* Score card */
-.score-grid {
-display: grid;
-grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-gap: 12px;
-margin-bottom: 20px;
-}
-
-.score-card {
-background: var(–surface);
-border: 1px solid var(–border);
-border-radius: 12px;
-padding: 16px;
-text-align: center;
-position: relative;
-overflow: hidden;
-}
-
-.score-card::before {
-content: ‘’;
-position: absolute;
-top: 0; left: 0; right: 0;
-height: 2px;
-}
-
-.score-card.green::before { background: var(–accent); }
-.score-card.purple::before { background: var(–accent2); }
-.score-card.amber::before { background: var(–accent3); }
-.score-card.red::before { background: var(–danger); }
-
-.score-value {
-font-family: ‘Syne’, sans-serif;
-font-size: 1.8rem;
-font-weight: 800;
-line-height: 1;
-margin-bottom: 4px;
-}
-
-.score-card.green .score-value { color: var(–accent); }
-.score-card.purple .score-value { color: var(–accent2); }
-.score-card.amber .score-value { color: var(–accent3); }
-.score-card.red .score-value { color: var(–danger); }
-
-.score-label {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.6rem;
-color: var(–muted);
-letter-spacing: 0.08em;
-text-transform: uppercase;
-}
-
-/* Response content */
-.response-card {
-background: var(–surface);
-border: 1px solid var(–border);
-border-radius: 16px;
-overflow: hidden;
-margin-bottom: 16px;
-}
-
-.response-header {
-padding: 14px 20px;
-border-bottom: 1px solid var(–border);
-display: flex;
-align-items: center;
-gap: 10px;
-background: var(–surface2);
-}
-
-.response-header .dot {
-width: 6px; height: 6px;
-border-radius: 50%;
-background: var(–accent);
-animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-0%, 100% { opacity: 1; }
-50% { opacity: 0.3; }
-}
-
-.response-header span {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.7rem;
-color: var(–muted);
-letter-spacing: 0.06em;
-}
-
-.response-body {
-padding: 20px;
-font-size: 0.88rem;
-line-height: 1.7;
-color: #c8c8d8;
-white-space: pre-wrap;
-font-family: ‘DM Sans’, sans-serif;
-}
-
-/* Loading state */
-.loading-indicator {
-display: flex;
-align-items: center;
-gap: 12px;
-padding: 24px 20px;
-color: var(–muted);
-font-family: ‘DM Mono’, monospace;
-font-size: 0.75rem;
-letter-spacing: 0.06em;
-}
-
-.loading-dots {
-display: flex;
-gap: 4px;
-}
-
-.loading-dots span {
-width: 6px; height: 6px;
-border-radius: 50%;
-background: var(–accent);
-animation: bounce 1.2s infinite;
-}
-
-.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
-40% { transform: scale(1); opacity: 1; }
-}
-
-/* History */
-.history-section {
-margin-top: 32px;
-padding-top: 24px;
-border-top: 1px solid var(–border);
-}
-
-.section-label {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.65rem;
-color: var(–muted);
-letter-spacing: 0.1em;
-text-transform: uppercase;
-margin-bottom: 14px;
-}
-
-.history-item {
-display: flex;
-align-items: flex-start;
-gap: 12px;
-padding: 12px 0;
-border-bottom: 1px solid rgba(42,42,58,0.5);
-cursor: pointer;
-transition: all 0.2s;
-}
-
-.history-item:hover { opacity: 0.8; }
-
-.history-num {
-font-family: ‘DM Mono’, monospace;
-font-size: 0.65rem;
-color: var(–muted);
-min-width: 20px;
-margin-top: 2px;
-}
-
-.history-text {
-font-size: 0.82rem;
-color: var(–muted);
-flex: 1;
-line-height: 1.4;
-}
-
-.history-arrow {
-color: var(–border);
-font-size: 0.8rem;
-margin-top: 2px;
-}
-
-/* Footer */
-footer {
-padding: 32px 0 24px;
-text-align: center;
-color: var(–muted);
-font-family: ‘DM Mono’, monospace;
-font-size: 0.65rem;
-letter-spacing: 0.06em;
-}
-
-/* Verdict pill */
-.verdict {
-display: inline-flex;
-align-items: center;
-gap: 6px;
-padding: 6px 14px;
-border-radius: 100px;
-font-family: ‘Syne’, sans-serif;
-font-size: 0.75rem;
-font-weight: 700;
-letter-spacing: 0.04em;
-margin-bottom: 16px;
-}
-
-.verdict.go { background: rgba(0,229,160,0.1); color: var(–accent); border: 1px solid rgba(0,229,160,0.3); }
-.verdict.caution { background: rgba(245,158,11,0.1); color: var(–accent3); border: 1px solid rgba(245,158,11,0.3); }
-.verdict.skip { background: rgba(239,68,68,0.1); color: var(–danger); border: 1px solid rgba(239,68,68,0.3); }
-
-@media (max-width: 600px) {
-.input-row { flex-direction: column; }
-.analyze-btn { width: 100%; justify-content: center; }
-.mode-btn { font-size: 0.7rem; padding: 8px 10px; }
-}
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smarthaven Agent - Product Research AI</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #ffffff;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 2.8rem;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #aaaaaa;
+      margin-bottom: 40px;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 40px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+    .tab {
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 10px 20px;
+      color: #888;
+      transition: all 0.3s;
+    }
+    .tab.active {
+      color: #00ff9d;
+      border-bottom: 3px solid #00ff9d;
+      font-weight: 600;
+    }
+    .input-section {
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 16px;
+      font-size: 1.1rem;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 12px;
+      color: white;
+    }
+    .analyze-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: #00ff9d;
+      color: black;
+      border: none;
+      border-radius: 12px;
+      margin-top: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .analyze-btn:hover {
+      background: #00cc7a;
+    }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .suggestion {
+      background: #1a1a1a;
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .suggestion:hover {
+      background: #333;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      display: none;
+    }
+    .results {
+      background: #1a1a1a;
+      padding: 25px;
+      border-radius: 16px;
+      display: none;
+      margin-top: 30px;
+    }
+    .hourglass {
+      font-size: 3rem;
+      animation: spin 2s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Research. Analyze.<br>Drop or Ship.</h1>
+    <p class="subtitle">Your AI agent for finding winning dropshipping products</p>
 
-<div class="orb orb1"></div>
-<div class="orb orb2"></div>
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-type="PRODUCT RESEARCH ANALYSIS">🔍 Research Product</div>
+      <div class="tab" data-type="NICHE ANALYSIS REPORT">📊 Analyze Niche</div>
+      <div class="tab" data-type="PRODUCT COMPARISON REPORT">⚖️ Compare Products</div>
+    </div>
 
-<div class="container">
-
-  <header>
-    <div class="logo">Smart<span>Haven</span> AI</div>
-    <div class="badge">PRODUCT AGENT v1.0</div>
-  </header>
-
-  <div class="hero">
-    <h1>Research. Analyze.<br><em>Drop or Ship.</em></h1>
-    <p>Your AI agent for finding winning dropshipping products, scoring demand, estimating margins, and deciding what's worth selling.</p>
-  </div>
-
-  <!-- Mode selector -->
-
-  <div class="mode-selector">
-    <button class="mode-btn active" onclick="setMode('research')" id="btn-research">🔍 Research Product</button>
-    <button class="mode-btn" onclick="setMode('analyze')" id="btn-analyze">📊 Analyze Niche</button>
-    <button class="mode-btn" onclick="setMode('compare')" id="btn-compare">⚖️ Compare Products</button>
-    <button class="mode-btn" onclick="setMode('content')" id="btn-content">✍️ Content Brief</button>
-  </div>
-
-  <!-- Input card -->
-
-  <div class="input-card">
-    <span class="input-label" id="input-label">PRODUCT OR URL TO RESEARCH</span>
-    <div class="input-row">
-      <textarea id="userInput" placeholder="e.g. 'LED desk lamp with wireless charging' or paste an AliExpress product URL..." rows="3"></textarea>
-      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">
-        <span>▶</span> Analyze
+    <div class="input-section">
+      <label>PRODUCT OR URL TO RESEARCH</label>
+      <input type="text" id="productInput" placeholder="e.g. 'LED desk lamp with wireless charging' or paste an AliExpress URL...">
+      
+      <button class="analyze-btn" id="analyzeBtn">
+        ▶️ Analyze
       </button>
     </div>
-    <div class="quick-prompts" id="quickPrompts">
-      <span class="chip" onclick="fillPrompt('Portable electric nail file kit for women')">💅 Nail file kit</span>
-      <span class="chip" onclick="fillPrompt('LED strip lights for bedroom')">💡 LED strips</span>
-      <span class="chip" onclick="fillPrompt('Posture corrector back brace')">🦺 Posture brace</span>
-      <span class="chip" onclick="fillPrompt('Mini projector for phone')">📽️ Mini projector</span>
-      <span class="chip" onclick="fillPrompt('Gym resistance bands set')">🏋️ Resistance bands</span>
-      <span class="chip" onclick="fillPrompt('Reusable makeup remover pads')">🌿 Eco beauty</span>
+
+    <!-- Suggestions -->
+    <div class="suggestions">
+      <div class="suggestion">Nail file kit</div>
+      <div class="suggestion">LED strips</div>
+      <div class="suggestion">Posture brace</div>
+      <div class="suggestion">Mini projector</div>
+      <div class="suggestion">Resistance bands</div>
+      <div class="suggestion">Eco beauty</div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="hourglass">⌛</div>
+      <h3>Analyzing...</h3>
+      <p id="loadingText">Agent is researching your product...</p>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+      <h2 id="reportTitle"></h2>
+      <div id="reportContent"></div>
     </div>
   </div>
 
-  <!-- Response area -->
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const productInput = document.getElementById('productInput');
+    const loading = document.getElementById('loading');
+    const results = document.getElementById('results');
+    const reportTitle = document.getElementById('reportTitle');
+    const reportContent = document.getElementById('reportContent');
+    const loadingText = document.getElementById('loadingText');
 
-  <div class="response-area" id="responseArea">
+    let currentReportType = "PRODUCT RESEARCH ANALYSIS";
 
-```
-<!-- Score grid (shown after analysis) -->
-<div class="score-grid" id="scoreGrid" style="display:none">
-  <div class="score-card green">
-    <div class="score-value" id="score-demand">—</div>
-    <div class="score-label">Demand Score</div>
-  </div>
-  <div class="score-card purple">
-    <div class="score-value" id="score-margin">—</div>
-    <div class="score-label">Est. Margin</div>
-  </div>
-  <div class="score-card amber">
-    <div class="score-value" id="score-competition">—</div>
-    <div class="score-label">Competition</div>
-  </div>
-  <div class="score-card red">
-    <div class="score-value" id="score-trend">—</div>
-    <div class="score-label">Trend Score</div>
-  </div>
-</div>
-
-<!-- Verdict -->
-<div id="verdictPill" style="display:none"></div>
-
-<!-- Main response -->
-<div class="response-card">
-  <div class="response-header">
-    <div class="dot"></div>
-    <span id="responseLabel">SMARTHAVEN AGENT ANALYSIS</span>
-  </div>
-  <div class="response-body" id="responseBody">
-    <div class="loading-indicator">
-      <div class="loading-dots">
-        <span></span><span></span><span></span>
-      </div>
-      Analyzing product data...
-    </div>
-  </div>
-</div>
-```
-
-  </div>
-
-  <!-- History -->
-
-  <div class="history-section" id="historySection" style="display:none">
-    <div class="section-label">Recent Analyses</div>
-    <div id="historyList"></div>
-  </div>
-
-  <footer>SmartHaven Digital • AI Product Research Agent • Built for dropshipping automation</footer>
-
-</div>
-
-<script>
-  const API_URL = "https://api.anthropic.com/v1/messages";
-  let currentMode = 'research';
-  let analysisHistory = [];
-
-  const modeConfig = {
-    research: {
-      label: 'PRODUCT OR URL TO RESEARCH',
-      placeholder: "e.g. 'LED desk lamp with wireless charging' or paste an AliExpress product URL...",
-      chips: [
-        { icon: '💅', label: 'Nail file kit', prompt: 'Portable electric nail file kit for women' },
-        { icon: '💡', label: 'LED strips', prompt: 'LED strip lights for bedroom' },
-        { icon: '🦺', label: 'Posture brace', prompt: 'Posture corrector back brace' },
-        { icon: '📽️', label: 'Mini projector', prompt: 'Mini projector for phone' },
-        { icon: '🏋️', label: 'Resistance bands', prompt: 'Gym resistance bands set' },
-        { icon: '🌿', label: 'Eco beauty', prompt: 'Reusable makeup remover pads' },
-      ]
-    },
-    analyze: {
-      label: 'NICHE TO ANALYZE',
-      placeholder: "e.g. 'home gym equipment', 'pet accessories Kenya', 'sustainable beauty'...",
-      chips: [
-        { icon: '🏠', label: 'Home decor', prompt: 'Home decor and lighting niche' },
-        { icon: '🐾', label: 'Pet products', prompt: 'Pet accessories and toys niche' },
-        { icon: '💄', label: 'Beauty tools', prompt: 'Beauty and skincare tools niche' },
-        { icon: '📱', label: 'Phone accessories', prompt: 'Phone and tech accessories niche' },
-        { icon: '🧘', label: 'Wellness', prompt: 'Wellness and self-care products niche' },
-        { icon: '👶', label: 'Baby products', prompt: 'Baby and toddler products niche' },
-      ]
-    },
-    compare: {
-      label: 'PRODUCTS TO COMPARE (separate with vs)',
-      placeholder: "e.g. 'Posture corrector vs back massage gun vs resistance bands'...",
-      chips: [
-        { icon: '⚖️', label: 'Gym vs beauty', prompt: 'Resistance bands vs jade roller vs posture corrector' },
-        { icon: '⚖️', label: 'Kitchen gadgets', prompt: 'Air fryer liner vs silicone food bags vs reusable straws' },
-        { icon: '⚖️', label: 'Tech accessories', prompt: 'Magnetic phone holder vs wireless charger vs LED ring light' },
-      ]
-    },
-    content: {
-      label: 'PRODUCT FOR CONTENT BRIEF',
-      placeholder: "e.g. 'Portable blender cup' — get a full content package for social media...",
-      chips: [
-        { icon: '✍️', label: 'Kitchen gadget', prompt: 'Portable mini blender cup' },
-        { icon: '✍️', label: 'Beauty tool', prompt: 'Gua sha facial massage stone' },
-        { icon: '✍️', label: 'Home item', prompt: 'Self-watering plant pot' },
-        { icon: '✍️', label: 'Tech item', prompt: 'Wireless earbuds under $20' },
-      ]
-    }
-  };
-
-  function setMode(mode) {
-    currentMode = mode;
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-' + mode).classList.add('active');
-
-    const config = modeConfig[mode];
-    document.getElementById('input-label').textContent = config.label;
-    document.getElementById('userInput').placeholder = config.placeholder;
-    document.getElementById('userInput').value = '';
-
-    const chips = document.getElementById('quickPrompts');
-    chips.innerHTML = config.chips.map(c =>
-      `<span class="chip" onclick="fillPrompt('${c.prompt}')">${c.icon} ${c.label}</span>`
-    ).join('');
-
-    document.getElementById('responseArea').classList.remove('visible');
-    document.getElementById('scoreGrid').style.display = 'none';
-    document.getElementById('verdictPill').style.display = 'none';
-  }
-
-  function fillPrompt(text) {
-    document.getElementById('userInput').value = text;
-    document.getElementById('userInput').focus();
-  }
-
-  function buildSystemPrompt() {
-    const base = `You are the SmartHaven Product Intelligence Agent — an expert AI for dropshipping product research built for SmartHaven Digital, a Kenyan e-commerce automation business targeting global markets via Shopify + AliExpress.
-
-Your analysis must be practical, data-informed, and actionable for a dropshipper using AliExpress → DSers → Shopify.
-
-Always structure your response clearly with sections. Use emojis sparingly for section headers. Be specific with numbers and recommendations. Consider that the operator is based in Kenya targeting English-speaking markets (US, UK, Australia, Kenya).`;
-
-    const modePrompts = {
-      research: `${base}
-
-When given a product name or URL, provide:
-
-📦 PRODUCT OVERVIEW
-Brief description, target audience, primary use case.
-
-📊 DEMAND ANALYSIS
-Estimated demand level (Low/Medium/High/Very High), key demand drivers, seasonal patterns, TikTok/social media potential, search volume indicators.
-
-💰 MARGIN ANALYSIS  
-Typical AliExpress supplier price range, recommended selling price, estimated margin %, profit per unit estimate. Flag if margin is below 40% as risky.
-
-🏆 COMPETITION LEVEL
-How saturated is this product? (Low/Medium/High). Key competitors. Differentiation opportunities.
-
-📈 TREND SCORE
-Is this trending up, stable, or declining? Early opportunity or late to market?
-
-⚠️ RISK FLAGS
-Any quality issues, shipping problems, returns risk, or market saturation concerns.
-
-✅ SMARTHAVEN VERDICT
-Clear GO / CAUTION / SKIP recommendation with one-line reason.
-
-🎯 NEXT STEPS
-3 specific actions to take if pursuing this product.
-
-At the very end, output a JSON block on its own line in this exact format (no markdown, just the JSON):
-SCORES:{"demand":85,"margin":62,"competition":"MED","trend":78,"verdict":"GO"}`,
-
-      analyze: `${base}
-
-When given a niche, provide:
-
-🌍 NICHE OVERVIEW
-Market size, key buyer demographics, average order values, purchase frequency.
-
-🔥 TOP 5 WINNING PRODUCTS IN THIS NICHE
-For each: product name, AliExpress price range, selling price, margin %, why it works.
-
-📊 NICHE METRICS
-Overall demand: High/Medium/Low
-Competition: High/Medium/Low  
-Entry difficulty: Easy/Medium/Hard
-Recommended for beginners: Yes/No
-
-💡 CONTENT STRATEGY
-Best platforms for this niche, content angles that convert, hashtag categories to target.
-
-⚠️ PITFALLS TO AVOID
-Common mistakes dropshippers make in this niche.
-
-✅ SMARTHAVEN VERDICT
-Should SmartHaven pursue this niche? GO / CAUTION / SKIP with reasoning.
-
-At the very end output:
-SCORES:{"demand":80,"margin":55,"competition":"HIGH","trend":70,"verdict":"CAUTION"}`,
-
-      compare: `${base}
-
-When given multiple products to compare, create a comparison table analysis:
-
-📊 COMPARISON OVERVIEW
-Brief intro on what you're comparing and why it matters.
-
-For each product provide:
-- Demand score (1-100)
-- Estimated margin %
-- Competition level
-- Trend direction
-- AliExpress price / selling price
-- Best target audience
-- Main risk
-
-🏆 HEAD-TO-HEAD WINNER
-Which product wins and why, across these categories:
-- Best margin
-- Easiest to market
-- Lowest risk
-- Highest potential
-
-✅ SMARTHAVEN RECOMMENDATION
-Which one to pursue first, second, third — with clear reasoning.
-
-At the very end output:
-SCORES:{"demand":75,"margin":60,"competition":"MED","trend":72,"verdict":"GO"}`,
-
-      content: `${base}
-
-When given a product, generate a complete content package:
-
-📱 TIKTOK CAPTION (3 versions)
-Short, punchy, hook-first. Include relevant hashtags.
-
-📸 INSTAGRAM CAPTION
-Lifestyle-focused, aesthetic tone. 150-200 chars + hashtags.
-
-📌 PINTEREST DESCRIPTION
-Keyword-rich, searchable, 200 chars.
-
-👥 FACEBOOK POST
-Conversational, 2 short paragraphs, community feel.
-
-📧 EMAIL SUBJECT LINE + PREVIEW
-Subject line (max 50 chars) + preview text (max 90 chars).
-
-🎨 CANVA IMAGE PROMPT
-Detailed visual description for creating a product ad in Canva AI.
-
-🔑 SEO KEYWORDS
-5 long-tail keywords to use in Shopify product title and description.
-
-📝 SHOPIFY PRODUCT DESCRIPTION
-150-word SEO-optimized description ready to paste into Shopify.
-
-At the very end output:
-SCORES:{"demand":70,"margin":55,"competition":"MED","trend":65,"verdict":"GO"}`
-    };
-
-    return modePrompts[currentMode];
-  }
-
-  async function runAnalysis() {
-    const input = document.getElementById('userInput').value.trim();
-    if (!input) {
-      document.getElementById('userInput').focus();
-      return;
-    }
-
-    const btn = document.getElementById('analyzeBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span>⏳</span> Analyzing...';
-
-    const responseArea = document.getElementById('responseArea');
-    responseArea.classList.add('visible');
-    document.getElementById('scoreGrid').style.display = 'none';
-    document.getElementById('verdictPill').style.display = 'none';
-    document.getElementById('responseBody').innerHTML = `
-      <div class="loading-indicator">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-        Agent is researching "${input}"...
-      </div>`;
-
-    const labelMap = {
-      research: 'PRODUCT RESEARCH ANALYSIS',
-      analyze: 'NICHE ANALYSIS REPORT',
-      compare: 'PRODUCT COMPARISON REPORT',
-      content: 'CONTENT PACKAGE'
-    };
-    document.getElementById('responseLabel').textContent = labelMap[currentMode];
-
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: buildSystemPrompt(),
-          messages: [{ role: 'user', content: input }]
-        })
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentReportType = tab.dataset.type;
       });
+    });
 
-      const data = await response.json();
-      let text = data.content?.map(b => b.text || '').join('') || 'No response received.';
+    // Suggestion chips
+    document.querySelectorAll('.suggestion').forEach(suggestion => {
+      suggestion.addEventListener('click', () => {
+        productInput.value = suggestion.textContent.trim();
+      });
+    });
 
-      // Extract scores
-      const scoresMatch = text.match(/SCORES:(\{[^}]+\})/);
-      if (scoresMatch) {
-        try {
-          const scores = JSON.parse(scoresMatch[1]);
-          text = text.replace(/SCORES:\{[^}]+\}/, '').trim();
-
-          document.getElementById('score-demand').textContent = scores.demand || '—';
-          document.getElementById('score-margin').textContent = (scores.margin || '—') + (scores.margin ? '%' : '');
-          document.getElementById('score-competition').textContent = scores.competition || '—';
-          document.getElementById('score-trend').textContent = scores.trend || '—';
-          document.getElementById('scoreGrid').style.display = 'grid';
-
-          // Verdict pill
-          const verdict = scores.verdict || 'CAUTION';
-          const verdictClass = verdict === 'GO' ? 'go' : verdict === 'SKIP' ? 'skip' : 'caution';
-          const verdictIcon = verdict === 'GO' ? '✅' : verdict === 'SKIP' ? '❌' : '⚠️';
-          const verdictPill = document.getElementById('verdictPill');
-          verdictPill.innerHTML = `<div class="verdict ${verdictClass}">${verdictIcon} SmartHaven Verdict: ${verdict}</div>`;
-          verdictPill.style.display = 'block';
-        } catch(e) {}
+    // Main Analyze function
+    analyzeBtn.addEventListener('click', async () => {
+      const query = productInput.value.trim();
+      
+      if (!query) {
+        alert("Please enter a product name or URL");
+        return;
       }
 
-      document.getElementById('responseBody').textContent = text;
+      // Show loading, hide results
+      loading.style.display = 'block';
+      results.style.display = 'none';
+      loadingText.textContent = `Agent is researching "${query}"...`;
 
-      // Add to history
-      analysisHistory.unshift({ mode: currentMode, input, timestamp: new Date().toLocaleTimeString() });
-      if (analysisHistory.length > 5) analysisHistory.pop();
-      renderHistory();
+      // Simulate AI thinking time (replace this later with real API call)
+      await new Promise(resolve => setTimeout(resolve, 2200));
 
-    } catch (err) {
-      document.getElementById('responseBody').textContent = '⚠️ Error connecting to AI agent. Please try again.\n\n' + err.message;
+      // Fake realistic report (we'll connect real AI later)
+      const fakeReport = generateFakeReport(query, currentReportType);
+
+      // Display results
+      loading.style.display = 'none';
+      results.style.display = 'block';
+      reportTitle.textContent = currentReportType.replace(/_/g, ' ');
+      reportContent.innerHTML = fakeReport;
+    });
+
+    // Fake report generator - replace with real AI later
+    function generateFakeReport(product, type) {
+      if (type === "PRODUCT RESEARCH ANALYSIS") {
+        return `
+          <h3>✅ Recommendation: Strong Potential</h3>
+          <p><strong>Demand Score:</strong> 8.7/10</p>
+          <p><strong>Competition:</strong> Medium</p>
+          <p><strong>Estimated Profit Margin:</strong> 45–65%</p>
+          <p><strong>Best AliExpress Suppliers:</strong> 3 reliable options found</p>
+          <hr>
+          <h4>Why this product can sell:</h4>
+          <ul>
+            <li>Trending on TikTok and Instagram</li>
+            <li>Low shipping weight (easy to fulfill)</li>
+            <li>Good reviews on similar products</li>
+          </ul>
+          <p><strong>Next Step:</strong> Import via DSers and test with 5–10 units.</p>
+        `;
+      } else if (type === "NICHE ANALYSIS REPORT") {
+        return `
+          <h3>Niche Analysis for ${product}</h3>
+          <p><strong>Niche Score:</strong> 9.1/10</p>
+          <p><strong>Target Audience:</strong> Home office workers & students</p>
+          <p><strong>Monthly Search Volume:</strong> ~45,000</p>
+          <p><strong>Competition Level:</strong> Low-Medium</p>
+        `;
+      } else {
+        return `
+          <h3>Product Comparison</h3>
+          <p>Comparison between 3 similar products on AliExpress...</p>
+          <p><strong>Winner:</strong> Option B (best margin + reviews)</p>
+        `;
+      }
     }
-
-    btn.disabled = false;
-    btn.innerHTML = '<span>▶</span> Analyze';
-  }
-
-  function renderHistory() {
-    const section = document.getElementById('historySection');
-    const list = document.getElementById('historyList');
-    if (analysisHistory.length === 0) { section.style.display = 'none'; return; }
-    section.style.display = 'block';
-    list.innerHTML = analysisHistory.map((item, i) => `
-      <div class="history-item" onclick="reloadHistory(${i})">
-        <span class="history-num">${String(i+1).padStart(2,'0')}</span>
-        <span class="history-text">${item.input} <span style="color:var(--border)">· ${item.mode} · ${item.timestamp}</span></span>
-        <span class="history-arrow">→</span>
-      </div>
-    `).join('');
-  }
-
-  function reloadHistory(i) {
-    const item = analysisHistory[i];
-    setMode(item.mode);
-    document.getElementById('userInput').value = item.input;
-  }
-
-  // Enter key to submit
-  document.getElementById('userInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAnalysis(); }
-  });
-</script>
-
+  </script>
 </body>
 </html>
