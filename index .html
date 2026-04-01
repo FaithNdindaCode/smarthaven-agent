@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusAI - Shopify Product Research Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Space Grotesk', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .neon-glow { box-shadow: 0 0 20px rgba(102, 126, 234, 0.5); }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #667eea, transparent);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(100%); opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(102, 126, 234, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+        }
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(102, 126, 234, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(102, 126, 234, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        .metric-card { transition: all 0.3s ease; }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-active { background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-pending { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+        .status-inactive { background: #ef4444; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #667eea;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .profit-positive { color: #10b981; }
+        .profit-negative { color: #ef4444; }
+        .competitor-row:hover { background: rgba(102, 126, 234, 0.1); }
+        .tab-active {
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            color: #667eea;
+        }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #334155;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #667eea;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
+    <div class="fixed inset-0 grid-bg opacity-30 pointer-events-none"></div>
+    <div class="fixed inset-0 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 pointer-events-none"></div>
+    
+    <div class="relative z-10 flex h-screen">
+        <aside class="w-64 glass-panel border-r border-white/10 flex flex-col hidden md:flex">
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center neon-glow">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold brand-font text-white">NexusAI</h1>
+                        <p class="text-xs text-slate-400">Shopify Automation</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition-all hover:bg-indigo-600/30" data-tab="dashboard">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    <span>Dashboard</span>
+                </button>
+                <button onclick="switchTab('research')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 transition-all" data-tab="research">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <span>Product Research</span>
+                </button>
+                <button onclick="switchTab('analyzer')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 transition-all" data-tab="analyzer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span>AI Analyzer</span>
+                </button>
+                <button onclick="switchTab('automation')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 transition-all" data-tab="automation">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    <span>Automation</span>
+                </button>
+                <button onclick="switchTab('settings')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 transition-all" data-tab="settings">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            
+            <div class="p-4 border-t border-white/10">
+                <div class="glass-panel rounded-xl p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <span class="text-xs text-slate-400">AI Agent Status</span>
+                    </div>
+                    <div class="text-sm font-medium text-white">Active & Learning</div>
+                    <div class="text-xs text-slate-500 mt-1">Last scan: 2 mins ago</div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto">
+            <header class="glass-panel border-b border-white/10 sticky top-0 z-50 px-4 md:px-8 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-slate-400 hover:text-white" onclick="toggleMobileMenu()">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-bold brand-font text-white" id="page-title">Dashboard</h2>
+                        <p class="text-xs md:text-sm text-slate-400">Real-time e-commerce intelligence</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 md:gap-4">
+                    <button class="relative p-2 text-slate-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </button>
+                    <div class="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-white/10">
+                        <div class="text-right hidden sm:block">
+                            <div class="text-xs md:text-sm font-medium text-white">Admin User</div>
+                            <div class="text-xs text-slate-400">Pro Plan</div>
+                        </div>
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm md:text-base">
+                            A
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div id="mobile-menu" class="hidden md:hidden glass-panel border-b border-white/10 p-4">
+                <nav class="space-y-2">
+                    <button onclick="switchTab('dashboard'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5">Dashboard</button>
+                    <button onclick="switchTab('research'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5">Product Research</button>
+                    <button onclick="switchTab('analyzer'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5">AI Analyzer</button>
+                    <button onclick="switchTab('automation'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5">Automation</button>
+                    <button onclick="switchTab('settings'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5">Settings</button>
+                </nav>
+            </div>
+
+            <div class="p-4 md:p-8 max-w-7xl mx-auto">
+                <div id="dashboard-section" class="space-y-6 fade-in">
+                    <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                        <div class="metric-card glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex justify-between items-start mb-2 md:mb-4">
+                                <div class="p-2 md:p-3 rounded-xl bg-indigo-500/20 text-indigo-400">
+                                    <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                                </div>
+                                <span class="text-xs text-emerald-400 flex items-center">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                    +12.5%
+                                </span>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-bold text-white mb-1">2,847</div>
+                            <div class="text-xs md:text-sm text-slate-400">Products Analyzed</div>
+                        </div>
+                        
+                        <div class="metric-card glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex justify-between items-start mb-2 md:mb-4">
+                                <div class="p-2 md:p-3 rounded-xl bg-emerald-500/20 text-emerald-400">
+                                    <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <span class="text-xs text-emerald-400 flex items-center">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                    +23.1%
+                                </span>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-bold text-white mb-1">$84.2k</div>
+                            <div class="text-xs md:text-sm text-slate-400">Potential Profit</div>
+                        </div>
+                        
+                        <div class="metric-card glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex justify-between items-start mb-2 md:mb-4">
+                                <div class="p-2 md:p-3 rounded-xl bg-amber-500/20 text-amber-400">
+                                    <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                                </div>
+                                <span class="text-xs text-slate-400">Avg Score</span>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-bold text-white mb-1">87.4</div>
+                            <div class="text-xs md:text-sm text-slate-400">Winning Probability</div>
+                        </div>
+                        
+                        <div class="metric-card glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex justify-between items-start mb-2 md:mb-4">
+                                <div class="p-2 md:p-3 rounded-xl bg-purple-500/20 text-purple-400">
+                                    <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <span class="text-xs text-emerald-400 flex items-center">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                    +8
+                                </span>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-bold text-white mb-1">156</div>
+                            <div class="text-xs md:text-sm text-slate-400">Auto-Listed</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex justify-between items-center mb-4 md:mb-6">
+                                <h3 class="text-base md:text-lg font-semibold text-white">Market Trend Analysis</h3>
+                                <select class="bg-slate-800 border border-white/10 rounded-lg px-2 md:px-3 py-1 text-xs md:text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
+                                    <option>Last 7 Days</option>
+                                    <option>Last 30 Days</option>
+                                    <option>Last 90 Days</option>
+                                </select>
+                            </div>
+                            <div class="h-48 md:h-64">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <h3 class="text-base md:text-lg font-semibold text-white mb-4 md:mb-6">Top Categories</h3>
+                            <div class="space-y-3 md:space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs">EC</div>
+                                        <span class="text-xs md:text-sm text-slate-300">Electronics</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 md:w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-indigo-500 rounded-full" style="width: 78%"></div>
+                                        </div>
+                                        <span class="text-xs text-slate-400">78%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs">HM</div>
+                                        <span class="text-xs md:text-sm text-slate-300">Home & Garden</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 md:w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-emerald-500 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                        <span class="text-xs text-slate-400">65%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs">FS</div>
+                                        <span class="text-xs md:text-sm text-slate-300">Fashion</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 md:w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-amber-500 rounded-full" style="width: 52%"></div>
+                                        </div>
+                                        <span class="text-xs text-slate-400">52%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 text-xs">BE</div>
+                                        <span class="text-xs md:text-sm text-slate-300">Beauty</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-16 md:w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-rose-500 rounded-full" style="width: 43%"></div>
+                                        </div>
+                                        <span class="text-xs text-slate-400">43%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
+                                <button onclick="switchTab('research')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">
+                                    Start New Research
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                        <div class="flex justify-between items-center mb-4 md:mb-6">
+                            <h3 class="text-base md:text-lg font-semibold text-white">Recent AI Analysis</h3>
+                            <button class="text-xs md:text-sm text-indigo-400 hover:text-indigo-300">View All</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                        <th class="pb-4 font-medium">Product</th>
+                                        <th class="pb-4 font-medium hidden sm:table-cell">Niche</th>
+                                        <th class="pb-4 font-medium">AI Score</th>
+                                        <th class="pb-4 font-medium hidden md:table-cell">Profit Margin</th>
+                                        <th class="pb-4 font-medium">Status</th>
+                                        <th class="pb-4 font-medium">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm">
+                                    <tr class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                                        <td class="py-3 md:py-4">
+                                            <div class="flex items-center gap-2 md:gap-3">
+                                                <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs">WE</div>
+                                                <span class="text-white font-medium text-xs md:text-sm">Wireless Earbuds Pro</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 md:py-4 text-slate-400 hidden sm:table-cell text-xs md:text-sm">Electronics</td>
+                                        <td class="py-3 md:py-4"><span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 text-xs font-bold">92</span></td>
+                                        <td class="py-3 md:py-4 text-emerald-400 hidden md:table-cell text-xs md:text-sm">68%</td>
+                                        <td class="py-3 md:py-4"><span class="flex items-center text-xs"><span class="status-dot status-active"></span>Active</span></td>
+                                        <td class="py-3 md:py-4"><button class="text-indigo-400 hover:text-indigo-300 text-xs font-medium">View</button></td>
+                                    </tr>
+                                    <tr class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                                        <td class="py-3 md:py-4">
+                                            <div class="flex items-center gap-2 md:gap-3">
+                                                <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs">PG</div>
+                                                <span class="text-white font-medium text-xs md:text-sm">Pet Grooming Kit</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 md:py-4 text-slate-400 hidden sm:table-cell text-xs md:text-sm">Pets</td>
+                                        <td class="py-3 md:py-4"><span class="px-2 py-1 rounded bg-amber-500/20 text-amber-400 text-xs font-bold">78</span></td>
+                                        <td class="py-3 md:py-4 text-emerald-400 hidden md:table-cell text-xs md:text-sm">54%</td>
+                                        <td class="py-3 md:py-4"><span class="flex items-center text-xs"><span class="status-dot status-pending"></span>Pending</span></td>
+                                        <td class="py-3 md:py-4"><button class="text-indigo-400 hover:text-indigo-300 text-xs font-medium">Analyze</button></td>
+                                    </tr>
+                                    <tr class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                                        <td class="py-3 md:py-4">
+                                            <div class="flex items-center gap-2 md:gap-3">
+                                                <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xs">LS</div>
+                                                <span class="text-white font-medium text-xs md:text-sm">LED Strip Lights</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 md:py-4 text-slate-400 hidden sm:table-cell text-xs md:text-sm">Home</td>
+                                        <td class="py-3 md:py-4"><span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 text-xs font-bold">88</span></td>
+                                        <td class="py-3 md:py-4 text-emerald-400 hidden md:table-cell text-xs md:text-sm">72%</td>
+                                        <td class="py-3 md:py-4"><span class="flex items-center text-xs"><span class="status-dot status-active"></span>Active</span></td>
+                                        <td class="py-3 md:py-4"><button class="text-indigo-400 hover:text-indigo-300 text-xs font-medium">View</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="research-section" class="hidden space-y-6 fade-in">
+                    <div class="glass-panel rounded-2xl p-4 md:p-8 border border-white/10">
+                        <div class="max-w-3xl mx-auto text-center mb-6 md:mb-8">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 md:px-4 md:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs md:text-sm mb-4">
+                                <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                                AI Agent Ready
+                            </div>
+                            <h2 class="text-2xl md:text-3xl font-bold text-white mb-3 brand-font">Product Discovery Engine</h2>
+                            <p class="text-xs md:text-base text-slate-400">Enter a niche, competitor URL, or product idea. Our AI will analyze market saturation, profit potential, and competition levels.</p>
+                        </div>
+
+                        <div class="max-w-2xl mx-auto space-y-4">
+                            <div class="relative">
+                                <input type="text" id="research-input" placeholder="e.g., 'eco-friendly water bottles'..." 
+                                    class="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-900/50 border border-white/10 rounded-xl md:rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm md:text-lg">
+                                <button onclick="startResearch()" id="research-btn" class="absolute right-2 top-2 bottom-2 px-4 md:px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg md:rounded-xl font-medium transition-all flex items-center gap-2 text-sm">
+                                    <span class="hidden sm:inline">Analyze</span>
+                                    <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                </button>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-2 justify-center">
+                                <span class="text-xs text-slate-500">Trending:</span>
+                                <button onclick="quickResearch('portable blenders')" class="text-xs px-2 md:px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 transition-colors">Portable Blenders</button>
+                                <button onclick="quickResearch('LED strip lights')" class="text-xs px-2 md:px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 transition-colors">LED Strip Lights</button>
+                                <button onclick="quickResearch('pet grooming')" class="text-xs px-2 md:px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 transition-colors">Pet Grooming</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="research-progress" class="hidden glass-panel rounded-2xl p-4 md:p-8 border border-white/10 relative overflow-hidden">
+                        <div class="scan-line"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4 md:mb-6">
+                                <div>
+                                    <h3 class="text-lg md:text-xl font-semibold text-white mb-1">AI Analysis in Progress</h3>
+                                    <p class="text-slate-400 text-xs md:text-sm typing-cursor" id="research-status">Initializing market scan...</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl md:text-3xl font-bold text-indigo-400" id="progress-percent">0%</div>
+                                </div>
+                            </div>
+                            
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4 md:mb-6">
+                                <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                                <div class="bg-slate-900/50 rounded-xl p-3 md:p-4 border border-white/5">
+                                    <div class="flex items-center gap-2 md:gap-3 mb-2">
+                                        <div class="w-2 h-2 rounded-full bg-indigo-500 status-pending" id="step-1-dot"></div>
+                                        <span class="text-xs md:text-sm font-medium text-slate-300">Market Saturation</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500" id="step-1-status">Pending...</div>
+                                </div>
+                                <div class="bg-slate-900/50 rounded-xl p-3 md:p-4 border border-white/5">
+                                    <div class="flex items-center gap-2 md:gap-3 mb-2">
+                                        <div class="w-2 h-2 rounded-full bg-indigo-500 status-pending" id="step-2-dot"></div>
+                                        <span class="text-xs md:text-sm font-medium text-slate-300">Competitor Analysis</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500" id="step-2-status">Waiting...</div>
+                                </div>
+                                <div class="bg-slate-900/50 rounded-xl p-3 md:p-4 border border-white/5">
+                                    <div class="flex items-center gap-2 md:gap-3 mb-2">
+                                        <div class="w-2 h-2 rounded-full bg-indigo-500 status-pending" id="step-3-dot"></div>
+                                        <span class="text-xs md:text-sm font-medium text-slate-300">Profit Calculation</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500" id="step-3-status">Waiting...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="research-results" class="hidden space-y-6 fade-in">
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 md:mb-6">
+                                <div>
+                                    <h3 class="text-xl md:text-2xl font-bold text-white mb-1" id="result-title">Wireless Earbuds Pro</h3>
+                                    <p class="text-xs md:text-sm text-slate-400">Analysis completed in 4.2 seconds</p>
+                                </div>
+                                <div class="flex gap-2 md:gap-3 w-full md:w-auto">
+                                    <button onclick="saveToList()" class="flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition-all text-xs md:text-sm font-medium">
+                                        Save
+                                    </button>
+                                    <button onclick="startAutomation()" class="flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-xs md:text-sm font-medium flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span class="hidden sm:inline">Auto-Import</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                                <div class="text-center p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div class="text-2xl md:text-4xl font-bold text-white mb-1" id="ai-score">92</div>
+                                    <div class="text-xs text-slate-400 uppercase tracking-wider">AI Score</div>
+                                    <div class="text-xs text-emerald-400 mt-1">High Potential</div>
+                                </div>
+                                <div class="text-center p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div class="text-2xl md:text-4xl font-bold text-white mb-1" id="profit-margin">68%</div>
+                                    <div class="text-xs text-slate-400 uppercase tracking-wider">Margin</div>
+                                    <div class="text-xs text-emerald-400 mt-1">$24.50 avg</div>
+                                </div>
+                                <div class="text-center p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div class="text-2xl md:text-4xl font-bold text-white mb-1" id="competition-level">Low</div>
+                                    <div class="text-xs text-slate-400 uppercase tracking-wider">Competition</div>
+                                    <div class="text-xs text-emerald-400 mt-1">12 sellers</div>
+                                </div>
+                                <div class="text-center p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div class="text-2xl md:text-4xl font-bold text-white mb-1" id="demand-score">8.4</div>
+                                    <div class="text-xs text-slate-400 uppercase tracking-wider">Demand</div>
+                                    <div class="text-xs text-amber-400 mt-1">Trending up</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h4 class="text-base md:text-lg font-semibold text-white mb-4">Price Analysis</h4>
+                                <div class="h-40 md:h-48">
+                                    <canvas id="priceChart"></canvas>
+                                </div>
+                                <div class="mt-4 grid grid-cols-3 gap-2 md:gap-4 text-center">
+                                    <div>
+                                        <div class="text-xs text-slate-400">Min</div>
+                                        <div class="text-sm md:text-lg font-semibold text-white">$12.99</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Avg</div>
+                                        <div class="text-sm md:text-lg font-semibold text-indigo-400">$35.50</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Max</div>
+                                        <div class="text-sm md:text-lg font-semibold text-white">$89.99</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h4 class="text-base md:text-lg font-semibold text-white mb-4">Competitor Intelligence</h4>
+                                <div class="space-y-2 md:space-y-3">
+                                    <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg competitor-row cursor-pointer">
+                                        <div class="flex items-center gap-2 md:gap-3">
+                                            <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-indigo-500/20 flex items-center justify-center text-xs text-indigo-400">AM</div>
+                                            <div>
+                                                <div class="text-xs md:text-sm text-white font-medium">AudioMax Store</div>
+                                                <div class="text-xs text-slate-400">2.3k sold • 4.8★</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-xs md:text-sm text-white font-bold">$39.99</div>
+                                            <div class="text-xs text-emerald-400">Free ship</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg competitor-row cursor-pointer">
+                                        <div class="flex items-center gap-2 md:gap-3">
+                                            <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-purple-500/20 flex items-center justify-center text-xs text-purple-400">SB</div>
+                                            <div>
+                                                <div class="text-xs md:text-sm text-white font-medium">SoundBay Pro</div>
+                                                <div class="text-xs text-slate-400">1.8k sold • 4.6★</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-xs md:text-sm text-white font-bold">$42.50</div>
+                                            <div class="text-xs text-slate-400">$5 ship</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg competitor-row cursor-pointer">
+                                        <div class="flex items-center gap-2 md:gap-3">
+                                            <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-amber-500/20 flex items-center justify-center text-xs text-amber-400">TG</div>
+                                            <div>
+                                                <div class="text-xs md:text-sm text-white font-medium">TechGear Hub</div>
+                                                <div class="text-xs text-slate-400">956 sold • 4.4★</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-xs md:text-sm text-white font-bold">$29.99</div>
+                                            <div class="text-xs text-rose-400">Low stock</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="w-full mt-3 md:mt-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-xs md:text-sm">
+                                    View All 24 Competitors
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <h4 class="text-base md:text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-4 h-4 md:w-5 md:h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                AI Strategic Recommendations
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                <div class="p-3 md:p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                    <div class="flex items-start gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0 text-xs md:text-sm">1</div>
+                                        <div>
+                                            <div class="text-white font-medium text-xs md:text-sm mb-1">Price at $44.99 sweet spot</div>
+                                            <div class="text-xs text-slate-400">23% higher conversion vs competitors</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-3 md:p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                                    <div class="flex items-start gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0 text-xs md:text-sm">2</div>
+                                        <div>
+                                            <div class="text-white font-medium text-xs md:text-sm mb-1">Target fitness enthusiasts</div>
+                                            <div class="text-xs text-slate-400">40% demand spike in workout niche</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-3 md:p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                                    <div class="flex items-start gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0 text-xs md:text-sm">3</div>
+                                        <div>
+                                            <div class="text-white font-medium text-xs md:text-sm mb-1">Bundle with charging case</div>
+                                            <div class="text-xs text-slate-400">Increases AOV by $12</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-3 md:p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                                    <div class="flex items-start gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0 text-xs md:text-sm">4</div>
+                                        <div>
+                                            <div class="text-white font-medium text-xs md:text-sm mb-1">Launch within 48 hours</div>
+                                            <div class="text-xs text-slate-400">Competitor stock low - act fast</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="analyzer-section" class="hidden space-y-6 fade-in">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 space-y-4 md:space-y-6">
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h3 class="text-base md:text-lg font-semibold text-white mb-4">Product Calculator</h3>
+                                <div class="space-y-3 md:space-y-4">
+                                    <div>
+                                        <label class="block text-xs md:text-sm text-slate-400 mb-2">Supplier Cost ($)</label>
+                                        <input type="number" id="cost-price" value="15.00" oninput="calculateProfit()" 
+                                            class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs md:text-sm text-slate-400 mb-2">Selling Price ($)</label>
+                                        <input type="number" id="selling-price" value="45.00" oninput="calculateProfit()" 
+                                            class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs md:text-sm text-slate-400 mb-2">Shipping Cost ($)</label>
+                                        <input type="number" id="shipping-cost" value="5.00" oninput="calculateProfit()" 
+                                            class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs md:text-sm text-slate-400 mb-2">Ad Spend (%)</label>
+                                        <input type="number" id="ad-spend" value="20" oninput="calculateProfit()" 
+                                            class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs md:text-sm text-slate-400 mb-2">Shopify Plan</label>
+                                        <select id="shopify-plan" onchange="calculateProfit()" class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                            <option value="2">Basic (2%)</option>
+                                            <option value="1" selected>Shopify (1%)</option>
+                                            <option value="0.5">Advanced (0.5%)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h3 class="text-base md:text-lg font-semibold text-white mb-4">Break-even Analysis</h3>
+                                <div class="space-y-2 md:space-y-3">
+                                    <div class="flex justify-between text-xs md:text-sm">
+                                        <span class="text-slate-400">Units to break even:</span>
+                                        <span class="text-white font-semibold" id="break-even-units">12</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs md:text-sm">
+                                        <span class="text-slate-400">Daily sales needed:</span>
+                                        <span class="text-white font-semibold" id="daily-sales">4</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs md:text-sm">
+                                        <span class="text-slate-400">ROI Period:</span>
+                                        <span class="text-emerald-400 font-semibold" id="roi-period">14 days</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-2 space-y-4 md:space-y-6">
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h3 class="text-base md:text-lg font-semibold text-white mb-4 md:mb-6">Profit Breakdown</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+                                    <div class="bg-slate-900/30 rounded-xl p-2 md:p-4 text-center">
+                                        <div class="text-xs text-slate-400 mb-1">Revenue</div>
+                                        <div class="text-base md:text-xl font-bold text-white" id="calc-revenue">$45.00</div>
+                                    </div>
+                                    <div class="bg-slate-900/30 rounded-xl p-2 md:p-4 text-center">
+                                        <div class="text-xs text-slate-400 mb-1">Total Costs</div>
+                                        <div class="text-base md:text-xl font-bold text-rose-400" id="calc-costs">$29.45</div>
+                                    </div>
+                                    <div class="bg-slate-900/30 rounded-xl p-2 md:p-4 text-center">
+                                        <div class="text-xs text-slate-400 mb-1">Net Profit</div>
+                                        <div class="text-base md:text-xl font-bold text-emerald-400" id="calc-profit">$15.55</div>
+                                    </div>
+                                    <div class="bg-slate-900/30 rounded-xl p-2 md:p-4 text-center">
+                                        <div class="text-xs text-slate-400 mb-1">Margin</div>
+                                        <div class="text-base md:text-xl font-bold text-indigo-400" id="calc-margin">34.6%</div>
+                                    </div>
+                                </div>
+                                <div class="h-32 md:h-40">
+                                    <canvas id="profitChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                                <h3 class="text-base md:text-lg font-semibold text-white mb-4">Scenario Planning</h3>
+                                <div class="space-y-2 md:space-y-4">
+                                    <div class="flex items-center justify-between p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                        <div>
+                                            <div class="text-xs md:text-sm font-medium text-white">Conservative (10% lower)</div>
+                                            <div class="text-xs text-slate-400">$40.50 selling price</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-base md:text-lg font-bold profit-positive" id="scenario-low">$11.50</div>
+                                            <div class="text-xs text-slate-400">profit/unit</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 md:p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                                        <div>
+                                            <div class="text-xs md:text-sm font-medium text-white">Current</div>
+                                            <div class="text-xs text-slate-400">$45.00 selling price</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-base md:text-lg font-bold text-indigo-400" id="scenario-current">$15.55</div>
+                                            <div class="text-xs text-slate-400">profit/unit</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                        <div>
+                                            <div class="text-xs md:text-sm font-medium text-white">Aggressive (Premium)</div>
+                                            <div class="text-xs text-slate-400">$55.00 selling price</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-base md:text-lg font-bold profit-positive" id="scenario-high">$24.55</div>
+                                            <div class="text-xs text-slate-400">profit/unit</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="automation-section" class="hidden space-y-6 fade-in">
+                    <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                        <div class="flex justify-between items-center mb-4 md:mb-6">
+                            <div>
+                                <h3 class="text-lg md:text-xl font-semibold text-white">Automation Workflows</h3>
+                                <p class="text-xs md:text-sm text-slate-400">Configure auto-import and pricing rules</p>
+                            </div>
+                            <button onclick="createNewWorkflow()" class="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs md:text-sm font-medium transition-colors">
+                                + New
+                            </button>
+                        </div>
+
+                        <div class="space-y-3 md:space-y-4">
+                            <div class="bg-slate-900/30 rounded-xl p-3 md:p-4 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 md:gap-4">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-white font-medium text-sm md:text-base">Auto-Import Winners</div>
+                                            <div class="text-xs text-slate-400">Triggers when AI Score > 85</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 md:gap-4">
+                                        <span class="status-dot status-active"></span>
+                                        <span class="text-xs text-slate-400 hidden sm:inline">Active</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-900/30 rounded-xl p-3 md:p-4 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 md:gap-4">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+                                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-white font-medium text-sm md:text-base">Dynamic Pricing</div>
+                                            <div class="text-xs text-slate-400">Adjusts based on competitor moves</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 md:gap-4">
+                                        <span class="status-dot status-pending"></span>
+                                        <span class="text-xs text-slate-400 hidden sm:inline">Paused</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-900/30 rounded-xl p-3 md:p-4 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 md:gap-4">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-white font-medium text-sm md:text-base">Daily Reports</div>
+                                            <div class="text-xs text-slate-400">Sends summary at 9 AM</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 md:gap-4">
+                                        <span class="status-dot status-active"></span>
+                                        <span class="text-xs text-slate-400 hidden sm:inline">Active</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <h4 class="text-base md:text-lg font-semibold text-white mb-4">Integration Status</h4>
+                            <div class="space-y-3 md:space-y-4">
+                                <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-green-500/20 flex items-center justify-center">
+                                            <svg class="w-3 h-3 md:w-4 md:h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        </div>
+                                        <span class="text-xs md:text-sm text-white">Shopify Store</span>
+                                    </div>
+                                    <span class="text-xs text-emerald-400">Connected</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-green-500/20 flex items-center justify-center">
+                                            <svg class="w-3 h-3 md:w-4 md:h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        </div>
+                                        <span class="text-xs md:text-sm text-white">AliExpress API</span>
+                                    </div>
+                                    <span class="text-xs text-emerald-400">Connected</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 md:p-3 bg-slate-900/30 rounded-lg">
+                                    <div class="flex items-center gap-2 md:gap-3">
+                                        <div class="w-6 h-6 md:w-8 md:h-8 rounded bg-amber-500/20 flex items-center justify-center">
+                                            <svg class="w-3 h-3 md:w-4 md:h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </div>
+                                        <span class="text-xs md:text-sm text-white">Google Trends</span>
+                                    </div>
+                                    <span class="text-xs text-amber-400">Rate Limited</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                            <h4 class="text-base md:text-lg font-semibold text-white mb-4">Activity Log</h4>
+                            <div class="space-y-2 md:space-y-3 max-h-48 md:max-h-64 overflow-y-auto">
+                                <div class="flex gap-2 md:gap-3 text-xs md:text-sm">
+                                    <span class="text-slate-500 text-xs whitespace-nowrap">11:42 AM</span>
+                                    <div>
+                                        <div class="text-slate-300">Auto-imported <span class="text-indigo-400">Wireless Earbuds</span></div>
+                                        <div class="text-xs text-slate-500">AI Score: 92/100</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 md:gap-3 text-xs md:text-sm">
+                                    <span class="text-slate-500 text-xs whitespace-nowrap">11:38 AM</span>
+                                    <div>
+                                        <div class="text-slate-300">Price adjusted for <span class="text-indigo-400">Smart Watch Pro</span></div>
+                                        <div class="text-xs text-slate-500">Competitor undercut detected</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 md:gap-3 text-xs md:text-sm">
+                                    <span class="text-slate-500 text-xs whitespace-nowrap">11:15 AM</span>
+                                    <div>
+                                        <div class="text-slate-300">Research completed: <span class="text-indigo-400">Pet Grooming Kit</span></div>
+                                        <div class="text-xs text-slate-500">Found 23 potential suppliers</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-section" class="hidden space-y-6 fade-in">
+                    <div class="glass-panel rounded-2xl p-4 md:p-6 border border-white/10">
+                        <h3 class="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">AI Agent Configuration</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div class="space-y-4 md:space-y-6">
+                                <div>
+                                    <label class="block text-xs md:text-sm text-slate-400 mb-2">Minimum AI Score Threshold</label>
+                                    <input type="range" min="0" max="100" value="75" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>Any</span>
+                                        <span class="text-indigo-400 font-medium">75</span>
+                                        <span>Perfect</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs md:text-sm text-slate-400 mb-2">Minimum Profit Margin (%)</label>
+                                    <input type="range" min="10" max="100" value="30" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>10%</span>
+                                        <span class="text-indigo-400 font-medium">30%</span>
+                                        <span>100%</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs md:text-sm text-slate-400 mb-2">Max Competition Level</label>
+                                    <select class="w-full px-3 md:px-4 py-2 bg-slate-900/50 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+                                        <option>Very Low</option>
+                                        <option>Low</option>
+                                        <option selected>Medium</option>
+                                        <option>High</option>
+                                        <option>Any</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3 md:space-y-4">
+                                <div class="flex items-center justify-between p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div>
+                                        <div class="text-white font-medium text-sm md:text-base">Auto-Import to Shopify</div>
+                                        <div class="text-xs text-slate-400">Automatically add winning products</div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" checked class="sr-only peer">
+                                        <div class="w-9 h-5 md:w-11 md:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 md:after:h-5 md:after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div>
+                                        <div class="text-white font-medium text-sm md:text-base">Price Monitoring</div>
+                                        <div class="text-xs text-slate-400">Track competitor price changes</div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" checked class="sr-only peer">
+                                        <div class="w-9 h-5 md:w-11 md:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 md:after:h-5 md:after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-3 md:p-4 bg-slate-900/30 rounded-xl">
+                                    <div>
+                                        <div class="text-white font-medium text-sm md:text-base">Email Notifications</div>
+                                        <div class="text-xs text-slate-400">Daily summary and alerts</div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" class="sr-only peer">
+                                        <div class="w-9 h-5 md:w-11 md:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 md:after:h-5 md:after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-white/10 flex justify-end gap-3 md:gap-4">
+                            <button class="px-4 md:px-6 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-xs md:text-sm">
+                                Reset
+                            </button>
+                            <button class="px-4 md:px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all text-xs md:text-sm">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentTab = 'dashboard';
+        let trendChartInstance = null;
+        let priceChartInstance = null;
+        let profitChartInstance = null;
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            document.querySelectorAll('[id$="-section"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            document.getElementById(tabName + '-section').classList.remove('hidden');
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'research': 'Product Research',
+                'analyzer': 'Profit Analyzer',
+                'automation': 'Automation',
+                'settings': 'Settings'
+            };
+            document.getElementById('page-title').textContent = titles[tabName];
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600/20', 'text-indigo-300', 'border', 'border-indigo-500/30');
+                btn.classList.add('text-slate-400');
+            });
+            
+            const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-400');
+                activeBtn.classList.add('bg-indigo-600/20', 'text-indigo-300', 'border', 'border-indigo-500/30');
+            }
+            
+            if (tabName === 'dashboard') {
+                setTimeout(initDashboardCharts, 100);
+            } else if (tabName === 'analyzer') {
+                setTimeout(initProfitChart, 100);
+            }
+        }
+
+        function initDashboardCharts() {
+            const ctx = document.getElementById('trendChart');
+            if (!ctx) return;
+            
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+            
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Products Analyzed',
+                        data: [45, 52, 48, 61, 55, 67, 72],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Winners Found',
+                        data: [12, 15, 11, 18, 14, 22, 25],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initPriceChart() {
+            const ctx = document.getElementById('priceChart');
+            if (!ctx) return;
+            
+            if (priceChartInstance) {
+                priceChartInstance.destroy();
+            }
+            
+            priceChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['$0-20', '$20-40', '$40-60', '$60-80', '$80+'],
+                    datasets: [{
+                        label: 'Competitor Distribution',
+                        data: [12, 28, 45, 22, 8],
+                        backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                        borderColor: '#667eea',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initProfitChart() {
+            const ctx = document.getElementById('profitChart');
+            if (!ctx) return;
+            
+            if (profitChartInstance) {
+                profitChartInstance.destroy();
+            }
+            
+            profitChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Net Profit', 'Product Cost', 'Shipping', 'Ads', 'Fees'],
+                    datasets: [{
+                        data: [34.6, 33.3, 11.1, 22.2, 8.9],
+                        backgroundColor: [
+                            '#10b981',
+                            '#3b82f6',
+                            '#f59e0b',
+                            '#ef4444',
+                            '#8b5cf6'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function quickResearch(term) {
+            document.getElementById('research-input').value = term;
+            startResearch();
+        }
+
+        function startResearch() {
+            const input = document.getElementById('research-input').value;
+            if (!input) {
+                alert('Please enter a product or niche to research');
+                return;
+            }
+            
+            document.getElementById('research-progress').classList.remove('hidden');
+            document.getElementById('research-results').classList.add('hidden');
+            
+            let progress = 0;
+            const steps = [
+                { id: 1, text: 'Scanning market saturation...', time: 30 },
+                { id: 2, text: 'Analyzing top competitors...', time: 60 },
+                { id: 3, text: 'Calculating profit margins...', time: 90 }
+            ];
+            
+            const interval = setInterval(() => {
+                progress += 2;
+                document.getElementById('progress-percent').textContent = progress + '%';
+                document.getElementById('progress-bar').style.width = progress + '%';
+                
+                steps.forEach(step => {
+                    if (progress >= step.time) {
+                        document.getElementById(`step-${step.id}-dot`).classList.remove('status-pending');
+                        document.getElementById(`step-${step.id}-dot`).classList.add('status-active');
+                        document.getElementById(`step-${step.id}-status`).textContent = 'Complete';
+                        document.getElementById(`step-${step.id}-status`).classList.add('text-emerald-400');
+                    }
+                });
+                
+                if (progress === 40) {
+                    document.getElementById('research-status').textContent = 'Analyzing competitor pricing strategies...';
+                } else if (progress === 75) {
+                    document.getElementById('research-status').textContent = 'Calculating optimal profit margins...';
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById('research-progress').classList.add('hidden');
+                        document.getElementById('research-results').classList.remove('hidden');
+                        document.getElementById('result-title').textContent = input.charAt(0).toUpperCase() + input.slice(1);
+                        initPriceChart();
+                    }, 500);
+                }
+            }, 50);
+        }
+
+        function saveToList() {
+            alert('Product saved to watchlist!');
+        }
+
+        function startAutomation() {
+            alert('Auto-import workflow started! Product will be added to your Shopify store.');
+        }
+
+        function createNewWorkflow() {
+            const name = prompt('Enter workflow name:');
+            if (name) {
+                alert(`Workflow "${name}" created successfully!`);
+            }
+        }
+
+        function calculateProfit() {
+            const cost = parseFloat(document.getElementById('cost-price').value) || 0;
+            const price = parseFloat(document.getElementById('selling-price').value) || 0;
+            const shipping = parseFloat(document.getElementById('shipping-cost').value) || 0;
+            const adSpend = parseFloat(document.getElementById('ad-spend').value) || 0;
+            const shopifyFee = parseFloat(document.getElementById('shopify-plan').value) || 0;
+            
+            const adCost = price * (adSpend / 100);
+            const feeCost = price * (shopifyFee / 100);
+            const totalCosts = cost + shipping + adCost + feeCost;
+            const profit = price - totalCosts;
+            const margin = price > 0 ? ((profit / price) * 100).toFixed(1) : 0;
+            
+            document.getElementById('calc-revenue').textContent = '$' + price.toFixed(2);
+            document.getElementById('calc-costs').textContent = '$' + totalCosts.toFixed(2);
+            document.getElementById('calc-profit').textContent = '$' + profit.toFixed(2);
+            document.getElementById('calc-margin').textContent = margin + '%';
+            
+            const lowPrice = price * 0.9;
+            const highPrice = price * 1.22;
+            
+            const lowProfit = lowPrice - (cost + shipping + (lowPrice * adSpend / 100) + (lowPrice * shopifyFee / 100));
+            const highProfit = highPrice - (cost + shipping + (highPrice * adSpend / 100) + (highPrice * shopifyFee / 100));
+            
+            document.getElementById('scenario-low').textContent = '$' + lowProfit.toFixed(2);
+            document.getElementById('scenario-current').textContent = '$' + profit.toFixed(2);
+            document.getElementById('scenario-high').textContent = '$' + highProfit.toFixed(2);
+            
+            const breakEven = profit > 0 ? Math.ceil(100 / profit) : 0;
+            document.getElementById('break-even-units').textContent = breakEven;
+            document.getElementById('daily-sales').textContent = Math.ceil(breakEven / 7);
+            
+            if (profitChartInstance) {
+                profitChartInstance.data.datasets[0].data = [
+                    parseFloat(margin),
+                    (cost/price*100).toFixed(1),
+                    (shipping/price*100).toFixed(1),
+                    adSpend,
+                    shopifyFee
+                ];
+                profitChartInstance.update();
+            }
+        }
+
+        window.onload = function() {
+            initDashboardCharts();
+            calculateProfit();
+        };
+    </script>
+</body>
+</html>
